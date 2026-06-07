@@ -36,10 +36,28 @@ angular.module('bahmni.home')
                 }
             };
 
-            var init = function () {
+            var getStoredLoginLocations = function () {
                 const loginLocations = localStorage.getItem("loginLocations");
+                if (!loginLocations) {
+                    return null;
+                }
+                try {
+                    const parsedLoginLocations = JSON.parse(loginLocations);
+                    if (angular.isArray(parsedLoginLocations) && parsedLoginLocations.length > 0) {
+                        return parsedLoginLocations;
+                    }
+                } catch (error) {
+                    localStorage.removeItem("loginLocations");
+                    return null;
+                }
+                localStorage.removeItem("loginLocations");
+                return null;
+            };
+
+            var init = function () {
+                const loginLocations = getStoredLoginLocations();
                 if (loginLocations) {
-                    $scope.locations = JSON.parse(loginLocations);
+                    $scope.locations = loginLocations;
                     setCurrentLoginLocationForUser();
                     return;
                 }

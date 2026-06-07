@@ -29,7 +29,20 @@ angular.module('bahmni.home')
 
             var userLoginLocations = function () {
                 var loginLocations = localStorage.getItem("loginLocations");
-                return loginLocations ? JSON.parse(loginLocations) : [];
+                if (!loginLocations) {
+                    return [];
+                }
+                try {
+                    var parsedLoginLocations = JSON.parse(loginLocations);
+                    if (angular.isArray(parsedLoginLocations)) {
+                        return parsedLoginLocations;
+                    }
+                } catch (error) {
+                    localStorage.removeItem("loginLocations");
+                    return [];
+                }
+                localStorage.removeItem("loginLocations");
+                return [];
             };
 
             var identifyLoginLocations = function (allLocations) {
@@ -46,6 +59,26 @@ angular.module('bahmni.home')
                 return _.find(localeLanguages, function (localeLanguage) {
                     return localeLanguage.code == localeCode;
                 });
+            };
+
+            var initializeLocales = function (allowedLocales) {
+                var localeValue = angular.isString(allowedLocales) ? allowedLocales : "";
+                var localeList = localeValue.replace(/\s+/g, '').split(',').filter(Boolean);
+                if (localeList.length === 0) {
+                    localeList = localeLanguages.length > 0 ? _.map(localeLanguages, 'code') : [$translate.use() || "en"];
+                }
+
+                $scope.locales = [];
+                _.forEach(localeList, function (locale) {
+                    var localeLanguage = findLanguageByLocale(locale);
+                    $scope.locales.push(_.isUndefined(localeLanguage) ? {"code": locale, "nativeName": locale} : localeLanguage);
+                });
+
+                var currentLocale = $translate.use();
+                var isCurrentLocaleAllowed = _.some($scope.locales, function (locale) {
+                    return locale.code === currentLocale;
+                });
+                $scope.selectedLocale = isCurrentLocaleAllowed ? currentLocale : $scope.locales[0].code;
             };
 
             var logAuditForLoginAttempts = function (eventType, isFailedEvent) {
@@ -78,20 +111,12 @@ angular.module('bahmni.home')
             });
 
             localeService.getLocalesLangs().then(function (response) {
-                localeLanguages = response.data.locales;
+                localeLanguages = response.data && response.data.locales || [];
             }).finally(function () {
                 promise.then(function (response) {
-                    var localeList = response.data.replace(/\s+/g, '').split(',');
-                    $scope.locales = [];
-                    _.forEach(localeList, function (locale) {
-                        var localeLanguage = findLanguageByLocale(locale);
-                        if (_.isUndefined(localeLanguage)) {
-                            $scope.locales.push({"code": locale, "nativeName": locale});
-                        } else {
-                            $scope.locales.push(localeLanguage);
-                        }
-                    });
-                    $scope.selectedLocale = $translate.use() ? $translate.use() : $scope.locales[0].code;
+                    initializeLocales(response.data);
+                }, function () {
+                    initializeLocales();
                 });
             });
 
@@ -129,20 +154,27 @@ angular.module('bahmni.home')
                 $scope.errorMessageTranslateKey = null;
                 var deferrable = $q.defer();
 
-                sessionService.updateSession($scope.loginInfo.currentLocation, null).then(function () {
-                    sessionService.loadCredentials().then(function () {
-                        onSuccessfulAuthentication();
-                        userService.savePreferences().then(
-                            function () { deferrable.resolve(); },
-                            function (error) { deferrable.reject(error); }
-                        );
-                        logAuditForLoginAttempts("USER_LOGIN_LOCATION_SUCCESS");
-                    }, function (error) {
+                sessionService.updateSession($scope.loginInfo.currentLocation, null).then(
+                    function () {
+                        sessionService.loadCredentials().then(function () {
+                            onSuccessfulAuthentication();
+                            userService.savePreferences().then(
+                                function () { deferrable.resolve(); },
+                                function (error) { deferrable.reject(error); }
+                            );
+                            logAuditForLoginAttempts("USER_LOGIN_LOCATION_SUCCESS");
+                        }, function (error) {
+                            $scope.errorMessageTranslateKey = error;
+                            deferrable.reject(error);
+                            logAuditForLoginAttempts("USER_LOGIN_LOCATION_FAILED", true);
+                        });
+                    },
+                    function (error) {
                         $scope.errorMessageTranslateKey = error;
                         deferrable.reject(error);
                         logAuditForLoginAttempts("USER_LOGIN_LOCATION_FAILED", true);
-                    });
-                });
+                    }
+                );
 
                 spinner.forPromise(deferrable.promise).then(
                     function (data) {

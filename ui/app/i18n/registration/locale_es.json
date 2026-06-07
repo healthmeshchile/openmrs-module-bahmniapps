@@ -70,7 +70,7 @@
     "REGISTRATION_LABEL_SAVED": "Guardado",
     "REGISTRATION_NO_RESULTS_FOUND": "No se han encontrado resultados",
     "REGISTRATION_INSUFFICIENT_PRIVILEGE": "Usted no tiene el privilegio de hacer esta acción.",
-    "REGISTRATION_LABEL_COULD_NOT_FIND_PATIENT": "No se pudo encontrar paciente con esa identificacion {{patientidentifier}}. Por favor verifique el ID de paciente ingresado o crear un nuevo record con este ID",
+    "REGISTRATION_LABEL_COULD_NOT_FIND_PATIENT": "No se pudo encontrar un paciente con el identificador {{patientIdentifier}}. Verifique el ID ingresado o cree un nuevo registro de paciente con este ID.",
     "REGISTRATION_VISIT_CANNOT_BE_CLOSED": "Visita del paciente ingresado no se puede cerrar. Dar de alta al paciente y vuelva a intentarlo.",
     "REGISTRATION_CONFIRM_CLOSE_VISIT": "¿Seguro que desea cerrar esta visita?",
     "REGISTRATION_LABEL_CORRECT_ERRORS": "Por favor, corrija los errores en el formulario. La información no se guardó",

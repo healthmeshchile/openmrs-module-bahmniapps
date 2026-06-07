@@ -134,6 +134,14 @@ describe("LoginLocationController", function () {
 		expect(scopeMock.locations).toEqual(allLocations);
 	});
 
+	it("should return all locations if stored login locations are invalid", function () {
+		localStorage.setItem("loginLocations", "{}");
+		loginLocationController();
+
+		expect(scopeMock.locations).toEqual(initialData.locations);
+		expect(localStorage.getItem("loginLocations")).toBeNull();
+	});
+
 	it("should return login locations of the user if they exist", function () {
 		loginLocationController();
 

@@ -201,6 +201,17 @@ describe("PatientsListController", function () {
                 expect(searchType.patientCount).toEqual(4);
             });
 
+            it('should clear patient count when a configured search fails', function(){
+                var searchType = { name: 'All active patients', display: 'All active patients', handler: 'emrapi.sqlSearch.activePatients', forwardUrl: undefined, id: 'bahmni.clinical.patients.allPatients', params: undefined , refreshTime: '10'};
+
+                scope.search.searchType = searchType;
+                scope.$digest();
+                findPatientsPromise.then.calls.mostRecent().args[1]();
+
+                expect(searchType.patientCount).toEqual(0);
+                expect(scope.search.activePatients).toEqual([]);
+            });
+
             it('should call _.each when serializeSearch is false', function () {
                 getAppDescriptor.getConfigValue.and.returnValue({"serializeSearch": false});
                 spyOn(_, 'each');

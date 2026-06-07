@@ -159,6 +159,40 @@ describe('loginController', function () {
         expect(scopeMock.locales).toEqual([{code: 'it', nativeName: 'it'}]);
     });
 
+    it('should select the first allowed locale when current locale is not allowed', function () {
+        localeService.allowedLocalesList.and.returnValue(specUtil.simplePromise({data: "es"}));
+        loginController();
+        expect(scopeMock.selectedLocale).toBe('es');
+    });
+
+    it('should use known locales when allowed locale configuration is empty', function () {
+        localeService.allowedLocalesList.and.returnValue(specUtil.simplePromise({data: ""}));
+        loginController();
+        expect(scopeMock.locales).toEqual([
+            {code: 'en', nativeName: 'English'},
+            {code: 'es', nativeName: 'Español'}
+        ]);
+    });
+
+    it('should use known locales when allowed locale configuration is malformed', function () {
+        localeService.allowedLocalesList.and.returnValue(specUtil.simplePromise({data: {}}));
+        loginController();
+        expect(scopeMock.locales).toEqual([
+            {code: 'en', nativeName: 'English'},
+            {code: 'es', nativeName: 'Español'}
+        ]);
+    });
+
+    it('should use known locales when allowed locale configuration cannot be loaded', function () {
+        localeService.allowedLocalesList.and.returnValue($q.reject());
+        loginController();
+        rootScopeMock.$digest();
+        expect(scopeMock.locales).toEqual([
+            {code: 'en', nativeName: 'English'},
+            {code: 'es', nativeName: 'Español'}
+        ]);
+    });
+
     it ("should fetch bahmniCore data and assign it to windows object ",function() {
             loginController();
             var fakeHttpGetPromise = {

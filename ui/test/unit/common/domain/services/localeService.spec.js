@@ -68,7 +68,7 @@ describe('localeService', function () {
             return specUtil.respondWith({"data": localeLangs});
         });
 
-        localeService.getLoginText().then(function (response) {
+        localeService.getLocalesLangs().then(function (response) {
             expect(response.data).toEqual(localeLangs);
             done();
         });
