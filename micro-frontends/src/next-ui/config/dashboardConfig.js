@@ -29,6 +29,37 @@ export const dashboardConfig = {
   //                       o GET /openmrs/ws/rest/v1/concept?q=<nombre>&v=custom:(display)
   //
   formSections: [
+    {
+      key: "patient_instructions",
+      label: "Indicaciones para el paciente",
+      filePrefix: "Indicaciones",
+      tagColor: "cyan",
+      observationConceptUuid: "9bb0795c-4ff0-0305-1990-000000000046",
+      fields: [
+        { label: "Fecha", source: "encounterDate" },
+        { label: "Indicaciones", conceptUuid: "9bb0795c-4ff0-0305-1990-000000000046", conceptDisplay: "Patient Instructions" },
+      ],
+    },
+    {
+      key: "referral_letter",
+      label: "Carta de derivacion",
+      filePrefix: "CartaDerivacion",
+      tagColor: "warm-gray",
+      observationGroupConceptUuid: "9bb0795c-4ff0-0305-1990-000000000047",
+      observationConceptUuids: [
+        "9bb0795c-4ff0-0305-1990-000000000042",
+        "164359AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "9bb0795c-4ff0-0305-1990-000000000043",
+        "9bb0795c-4ff0-0305-1990-000000000044",
+      ],
+      fields: [
+        { label: "Fecha", source: "encounterDate" },
+        { label: "Derivado a", conceptUuid: "9bb0795c-4ff0-0305-1990-000000000042", conceptDisplay: "Referred to" },
+        { label: "Motivo", conceptUuid: "164359AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conceptDisplay: "Reason for referral (text)" },
+        { label: "Historia relevante", conceptUuid: "9bb0795c-4ff0-0305-1990-000000000043", conceptDisplay: "Relevant clinical history" },
+        { label: "Tratamiento realizado", conceptUuid: "9bb0795c-4ff0-0305-1990-000000000044", conceptDisplay: "Treatment provided" },
+      ],
+    },
     // Ejemplo: Licencia Medica (estrategia por encounterTypeUuid)
     // {
     //   key:               "sick_leave",

@@ -159,6 +159,15 @@ describe('loginController', function () {
         expect(scopeMock.locales).toEqual([{code: 'it', nativeName: 'it'}]);
     });
 
+    it('should use configured locale languages when allowed locale list is empty', function () {
+        localeService.allowedLocalesList.and.returnValue(specUtil.simplePromise({data: ""}));
+        loginController();
+        expect(scopeMock.locales).toEqual([
+            {code: 'en', nativeName: 'English'},
+            {code: 'es', nativeName: 'Español'}
+        ]);
+    });
+
     it ("should fetch bahmniCore data and assign it to windows object ",function() {
             loginController();
             var fakeHttpGetPromise = {

@@ -94,7 +94,10 @@ angular.module('bahmni.home')
                 localeLanguages = response.data.locales;
             }).finally(function () {
                 promise.then(function (response) {
-                    var localeList = response.data.replace(/\s+/g, '').split(',');
+                    var localeList = response.data.replace(/\s+/g, '').split(',').filter(Boolean);
+                    if (localeList.length === 0) {
+                        localeList = _.map(localeLanguages, 'code');
+                    }
                     $scope.locales = [];
                     _.forEach(localeList, function (locale) {
                         var localeLanguage = findLanguageByLocale(locale);

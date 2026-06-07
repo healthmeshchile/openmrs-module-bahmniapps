@@ -131,6 +131,10 @@ const buildFormSectionsConfig = () =>
       encounterTypeUuid:      fc.encounterTypeUuid      || null,
       // Estrategia B: consulta directa por concepto (no requiere encounterTypeUuid)
       observationConceptUuid: fc.observationConceptUuid || null,
+      // Estrategia C: consulta obs groups repetibles.
+      observationGroupConceptUuid: fc.observationGroupConceptUuid || null,
+      // Estrategia C: consulta varios conceptos y los agrupa por encounter.
+      observationConceptUuids: fc.observationConceptUuids || null,
       fields,
       // Headers para Carbon DataTable (incluye columna acciones)
       tableHeaders: [
@@ -721,7 +725,7 @@ export function AllOrdersDashboard(props) {
           row[`f_${idx}`] =
             f.source === "encounterDate"
               ? formatDate(enc.encounterDatetime)
-              : (obsMap[f.conceptDisplay] ?? "-");
+              : (obsMap[f.conceptUuid || f.conceptDisplay] ?? "-");
         });
         return row;
       };
@@ -757,16 +761,117 @@ export function AllOrdersDashboard(props) {
       // Soporta dos estrategias según la config:
       //   A) encounterTypeUuid  → query por encounter + extrae obs del mapa (multi-campo)
       //   B) observationConceptUuid → query directo a /obs por concepto (mono-campo / concepto conocido)
+      const mapObsGroupToRow = (group, fc, i) => {
+        const detailLines = (fc.fields || [])
+          .filter((field) => field.source !== "encounterDate")
+          .map((field) => {
+            const value = group.obsMap[field.conceptUuid || field.conceptDisplay];
+            return value ? `${field.label}: ${value}` : null;
+          })
+          .filter(Boolean);
+        const row = {
+          id: group.id || `${fc.key}-${i}`,
+          orderNumber: "-",
+          orderDate: formatDate(group.encounterDatetime || group.obsDatetime),
+          _rawDate: group.encounterDatetime || group.obsDatetime,
+          visitUuid: group.visitUuid || null,
+          sectionKey: fc.key,
+          type: fc.label,
+          details: detailLines.join("\n"),
+        };
+        (fc.fields || []).forEach((f, idx) => {
+          row[`f_${idx}`] =
+            f.source === "encounterDate"
+              ? formatDate(group.encounterDatetime || group.obsDatetime)
+              : (group.obsMap[f.conceptUuid || f.conceptDisplay] ?? "-");
+        });
+        return row;
+      };
+
+      const mapOpenmrsObsGroupToRow = (obsGroup, fc, i) => {
+        const obsMap = {};
+        (obsGroup.groupMembers || []).forEach((member) => {
+          const key = member.concept?.uuid || member.concept?.display;
+          if (!key) return;
+          obsMap[key] =
+            member.valueText ??
+            member.value?.display ??
+            (member.value != null ? String(member.value) : "-");
+        });
+        return mapObsGroupToRow({
+          id: obsGroup.uuid || `${fc.key}-${i}`,
+          encounterDatetime: obsGroup.encounter?.encounterDatetime,
+          obsDatetime: obsGroup.obsDatetime,
+          visitUuid: obsGroup.encounter?.visit?.uuid || null,
+          obsMap,
+        }, fc, i);
+      };
+
       const formResults = await Promise.all(
         Object.entries(FORM_SECTIONS_CONFIG).map(async ([key, cfg]) => {
 
           // ── Estrategia B: query directo por conceptUuid ───────────────────
+          if (cfg.observationGroupConceptUuid) {
+            const url =
+              `/openmrs/ws/rest/v1/obs` +
+              `?patient=${patientUuid}` +
+              `&concept=${cfg.observationGroupConceptUuid}` +
+              `&v=custom:(uuid,obsDatetime,concept:(uuid),` +
+              `groupMembers:(uuid,value,valueText,concept:(uuid)),` +
+              `encounter:(uuid,encounterDatetime,` +
+              `visit:(uuid,visitType:(display))))` +
+              `&limit=100`;
+            const res = await fetch(url, credOpts);
+            if (!res.ok) return [key, []];
+            const obsGroups = (await res.json()).results || [];
+            if (obsGroups.length > 0) {
+              return [key, obsGroups.map((obsGroup, i) => mapOpenmrsObsGroupToRow(obsGroup, cfg, i))];
+            }
+          }
+
+          if (cfg.observationConceptUuids?.length) {
+            const obsResponses = await Promise.all(
+              cfg.observationConceptUuids.map(async (conceptUuid) => {
+                const url =
+                  `/openmrs/ws/rest/v1/obs` +
+                  `?patient=${patientUuid}` +
+                  `&concept=${conceptUuid}` +
+                  `&v=custom:(uuid,obsDatetime,value,valueText,concept:(uuid),` +
+                  `encounter:(uuid,encounterDatetime,` +
+                  `visit:(uuid,visitType:(display))))` +
+                  `&limit=100`;
+                const res = await fetch(url, credOpts);
+                if (!res.ok) return [];
+                return (await res.json()).results || [];
+              })
+            );
+            const groups = {};
+            obsResponses.flat().forEach((obs) => {
+              const groupId = obs.encounter?.uuid || obs.uuid;
+              const conceptName = obs.concept?.uuid || obs.concept?.display;
+              if (!groupId || !conceptName) return;
+              const obsValue =
+                obs.valueText ??
+                obs.value?.display ??
+                (obs.value != null ? String(obs.value) : "-");
+              groups[groupId] = groups[groupId] || {
+                id: groupId,
+                encounterDatetime: obs.encounter?.encounterDatetime,
+                obsDatetime: obs.obsDatetime,
+                visitUuid: obs.encounter?.visit?.uuid || null,
+                obsMap: {},
+              };
+              groups[groupId].obsMap[conceptName] = obsValue;
+            });
+            return [key, Object.values(groups).map((group, i) => mapObsGroupToRow(group, cfg, i))];
+          }
+
           if (cfg.observationConceptUuid) {
             const url =
               `/openmrs/ws/rest/v1/obs` +
               `?patient=${patientUuid}` +
               `&concept=${cfg.observationConceptUuid}` +
-              `&v=custom:(uuid,obsDatetime,value,valueText,concept:(display),` +
+              `&v=custom:(uuid,obsDatetime,value,valueText,concept:(uuid),` +
               `encounter:(uuid,encounterDatetime,` +
               `visit:(uuid,visitType:(display))))` +
               `&limit=100`;
