@@ -186,11 +186,10 @@ describe('loginController', function () {
 
     it('should use known locales when allowed locale configuration cannot be loaded', function () {
         localeService.allowedLocalesList.and.returnValue($q.reject());
-        $httpBackend.expectGET("../i18n/home/locale_en.json").respond({});
-        $httpBackend.expectGET("/bahmni_config/openmrs/i18n/home/locale_en.json").respond({});
+        $httpBackend.whenGET("../i18n/home/locale_en.json").respond({});
+        $httpBackend.whenGET("/bahmni_config/openmrs/i18n/home/locale_en.json").respond({});
         loginController();
         rootScopeMock.$digest();
-        $httpBackend.flush();
         expect(scopeMock.locales).toEqual([
             {code: 'en', nativeName: 'English'},
             {code: 'es', nativeName: 'Español'}
