@@ -61,26 +61,6 @@ angular.module('bahmni.home')
                 });
             };
 
-            var initializeLocales = function (allowedLocales) {
-                var localeValue = angular.isString(allowedLocales) ? allowedLocales : "";
-                var localeList = localeValue.replace(/\s+/g, '').split(',').filter(Boolean);
-                if (localeList.length === 0) {
-                    localeList = localeLanguages.length > 0 ? _.map(localeLanguages, 'code') : [$translate.use() || "en"];
-                }
-
-                $scope.locales = [];
-                _.forEach(localeList, function (locale) {
-                    var localeLanguage = findLanguageByLocale(locale);
-                    $scope.locales.push(_.isUndefined(localeLanguage) ? {"code": locale, "nativeName": locale} : localeLanguage);
-                });
-
-                var currentLocale = $translate.use();
-                var isCurrentLocaleAllowed = _.some($scope.locales, function (locale) {
-                    return locale.code === currentLocale;
-                });
-                $scope.selectedLocale = isCurrentLocaleAllowed ? currentLocale : $scope.locales[0].code;
-            };
-
             var logAuditForLoginAttempts = function (eventType, isFailedEvent) {
                 if ($scope.loginInfo.username) {
                     var messageParams = isFailedEvent ? {userName: $scope.loginInfo.username} : undefined;
@@ -111,12 +91,20 @@ angular.module('bahmni.home')
             });
 
             localeService.getLocalesLangs().then(function (response) {
-                localeLanguages = response.data && response.data.locales || [];
+                localeLanguages = response.data.locales;
             }).finally(function () {
                 promise.then(function (response) {
-                    initializeLocales(response.data);
-                }, function () {
-                    initializeLocales();
+                    var localeList = response.data.replace(/\s+/g, '').split(',');
+                    $scope.locales = [];
+                    _.forEach(localeList, function (locale) {
+                        var localeLanguage = findLanguageByLocale(locale);
+                        if (_.isUndefined(localeLanguage)) {
+                            $scope.locales.push({"code": locale, "nativeName": locale});
+                        } else {
+                            $scope.locales.push(localeLanguage);
+                        }
+                    });
+                    $scope.selectedLocale = $translate.use() ? $translate.use() : $scope.locales[0].code;
                 });
             });
 
