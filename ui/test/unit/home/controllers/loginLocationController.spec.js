@@ -185,7 +185,7 @@ describe("LoginLocationController", function () {
 
 		expect(scopeMock.locales).toEqual([
 			{ code: "en", nativeName: "English" },
-			{ code: "es", nativeName: "EspaÃ±ol" },
+			{ code: "es", nativeName: "Español" },
 		]);
 	});
 });
