@@ -103,10 +103,10 @@ angular.module('bahmni.clinical')
                 $scope.tabs = [];
                 _.forEach($scope.allOrdersTemplates, function (item) {
                     var conceptName = $scope.getName(item);
-                    var tabName = conceptName || item.name.name;
+                    var tabName = conceptName || $scope.getConceptName(item);
                     var key = '\'' + tabName + '\'';
                     $scope.allOrdersTemplates[key] = $scope.filterOrderTemplateByClassMap(item);
-                    $scope.tabs.push({name: tabName, topLevelConcept: item.name.name});
+                    $scope.tabs.push({name: tabName, topLevelConcept: $scope.getConceptName(item)});
                 });
                 if ($scope.tabs) {
                     $scope.activateTab($scope.tabs[0]);
@@ -304,14 +304,24 @@ angular.module('bahmni.clinical')
                 ngDialog.close();
             };
 
+            $scope.getConceptName = function (sample) {
+                if (!sample) {
+                    return undefined;
+                }
+                if (_.isString(sample.name)) {
+                    return sample.name;
+                }
+                return _.get(sample, 'name.name') || _.get(sample, 'name.display') || sample.display;
+            };
+
             $scope.getName = function (sample) {
                 var name = _.find(sample.names, {conceptNameType: "SHORT"}) || _.find(sample.names, {conceptNameType: "FULLY_SPECIFIED"});
-                return name && name.name;
+                return (name && name.name) || $scope.getConceptName(sample);
             };
 
             $scope.getNameInDefaultLocale = function (sample) {
                 var name = _.find(sample.names, { conceptNameType: "FULLY_SPECIFIED", locale: localStorage.getItem("openmrsDefaultLocale") || "en" });
-                return name ? name.name : sample.name.name;
+                return name ? name.name : $scope.getConceptName(sample);
             };
 
             init();

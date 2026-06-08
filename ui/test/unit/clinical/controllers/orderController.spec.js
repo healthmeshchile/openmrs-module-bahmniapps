@@ -132,6 +132,16 @@ describe("OrderController", function () {
             };
             expect(scope.getName(sample)).toBe(undefined);
         });
+
+        it("should get display name when concept names are not present in the custom REST view", function () {
+            var sample = {
+                "name": {
+                    "display": "Blood Specimen"
+                },
+                "names": []
+            };
+            expect(scope.getName(sample)).toBe("Blood Specimen");
+        });
     });
 
     describe("activateTab", function () {

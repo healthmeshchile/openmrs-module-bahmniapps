@@ -21,12 +21,23 @@ angular.module('bahmni.clinical')
                 return test.conceptClass.name === $scope.group.name;
             };
 
+            var getConceptName = function (concept) {
+                if (!concept) {
+                    return undefined;
+                }
+                if (_.isString(concept.name)) {
+                    return concept.name;
+                }
+                return _.get(concept, 'name.name') || _.get(concept, 'name.display') || concept.display;
+            };
+
             var filterBySearchString = function (testName) {
-                return _.includes(_.toLower(testName.name), _.toLower($scope.search.string));
+                return _.includes(_.toLower(testName.name || testName.display), _.toLower($scope.search.string));
             };
 
             $scope.filterBySearchString = function (test) {
-                return _.some(test.names, filterBySearchString);
+                return _.some(test.names, filterBySearchString) ||
+                    _.includes(_.toLower(getConceptName(test)), _.toLower($scope.search.string));
             };
         };
 

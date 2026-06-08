@@ -24,6 +24,12 @@ describe('Order', function () {
         expect(order.concept.displayName).toBe("FullySpecifiedName");
     });
 
+    it("should get display name when concept names are not present in the custom REST view", function () {
+        var testWithDisplayName = {names: [], name: {display: "Blood Specimen"}};
+        var order = Bahmni.Clinical.Order.create(testWithDisplayName);
+        expect(order.concept.displayName).toBe("Blood Specimen");
+    });
+
     it("should create order", function () {
         var order = Bahmni.Clinical.Order.create(testWithShortName);
         expect(order.concept.displayName).toBe('TestShortName');

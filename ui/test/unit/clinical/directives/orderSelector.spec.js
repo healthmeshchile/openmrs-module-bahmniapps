@@ -168,6 +168,31 @@ describe("ensure that the directive order-selector works properly", function () 
             expect(scope.filterBySearchString(test)).toBeFalsy();
         });
 
+        it("should filter tests by display name when concept names are not present",function () {
+            scope = rootScope.$new();
+
+            httpBackend.expectGET("./consultation/views/orderSelector.html").respond("<div>dummy</div>");
+
+            compile(html)(scope);
+
+            scope.$digest();
+            httpBackend.flush();
+
+            scope.$digest();
+
+            var test = {
+                name: {
+                    display: "Blood Specimen"
+                },
+                names: []
+            };
+
+            scope.search = {
+                string: 'blood'
+            };
+            expect(scope.filterBySearchString(test)).toBeTruthy();
+        });
+
     });
 
 });

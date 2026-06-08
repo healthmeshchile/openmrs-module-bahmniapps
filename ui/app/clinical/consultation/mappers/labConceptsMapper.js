@@ -16,10 +16,20 @@ Bahmni.LabConceptsMapper = (function () {
         return function (concept) { return concept.conceptClass.name === conceptClassName; };
     };
 
+    var getConceptName = function (concept) {
+        if (!concept) {
+            return undefined;
+        }
+        if (_.isString(concept.name)) {
+            return concept.name;
+        }
+        return _.get(concept, 'name.name') || _.get(concept, 'name.display') || concept.display;
+    };
+
     var assignDepartmentToTests = function (tests, departmentConceptSet) {
         var departmentConcepts = departmentConceptSet ? departmentConceptSet.setMembers : [];
         angular.forEach(departmentConcepts, function (departmentConcept) {
-            var department = { name: departmentConcept.name.name };
+            var department = { name: getConceptName(departmentConcept) };
             angular.forEach(departmentConcept.setMembers, function (testConcept) {
                 var test = tests.filter(function (test) { return test.uuid === testConcept.uuid; })[0];
                 if (test) {
@@ -32,7 +42,7 @@ Bahmni.LabConceptsMapper = (function () {
     var createTest = function (concept, sample, panels) {
         return {
             uuid: concept.uuid,
-            name: concept.name.name,
+            name: getConceptName(concept),
             sample: sample,
             panels: panels,
             set: false,
@@ -43,7 +53,7 @@ Bahmni.LabConceptsMapper = (function () {
     var createPanel = function (concept, sample) {
         return {
             uuid: concept.uuid,
-            name: concept.name.name,
+            name: getConceptName(concept),
             sample: sample,
             set: true,
             orderTypeName: Bahmni.Clinical.Constants.labOrderType
@@ -71,7 +81,7 @@ Bahmni.LabConceptsMapper = (function () {
             var tests = [];
             var sampleConcepts = labConceptSet.setMembers;
             angular.forEach(sampleConcepts, function (sampleConcept) {
-                var sample = {uuid: sampleConcept.uuid, name: sampleConcept.name.name };
+                var sample = {uuid: sampleConcept.uuid, name: getConceptName(sampleConcept) };
                 var panelConcepts = sampleConcept.setMembers.filter(forConcptClass(Bahmni.Clinical.Constants.labSetConceptName));
                 var testConcepts = sampleConcept.setMembers.filter(forConcptClass(Bahmni.Clinical.Constants.testConceptName));
                 angular.forEach(panelConcepts, function (panelConcept) {

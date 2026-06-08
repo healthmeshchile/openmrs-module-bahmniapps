@@ -123,6 +123,28 @@ describe("LabConceptsMapper", function () {
 
             expect(tests.length).toBe(4);
         });
+
+        it("should map concept display names when concept name values are not present", function () {
+            labConceptSet.setMembers = [
+                {
+                    name: { display: "Blood Specimen" },
+                    conceptClass: { name: "ConvSet" },
+                    setMembers: [
+                        {
+                            uuid: "display-test",
+                            name: { display: "Serum potassium" },
+                            conceptClass: { name: Bahmni.Clinical.Constants.testConceptName },
+                            setMembers: []
+                        }
+                    ]
+                }
+            ];
+
+            var tests = mapper.map(labConceptSet, null);
+
+            expect(tests.length).toBe(1);
+            expect(tests[0].name).toBe("Serum potassium");
+            expect(tests[0].sample.name).toBe("Blood Specimen");
+        });
     });
 });
-
