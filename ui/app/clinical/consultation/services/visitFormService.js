@@ -12,12 +12,13 @@
 angular.module('bahmni.clinical')
     .service('visitFormService', ['$http', function ($http) {
         var formData = function (patientUuid, numberOfVisits, formGroup, patientProgramUuid) {
+            var conceptNames = formGroup && formGroup.length > 0 ? formGroup : null;
             var params = {
                 s: "byPatientUuid",
                 patient: patientUuid,
                 numberOfVisits: numberOfVisits,
                 v: "visitFormDetails",
-                conceptNames: formGroup || null,
+                conceptNames: conceptNames,
                 patientProgramUuid: patientProgramUuid
             };
             return $http.get(Bahmni.Common.Constants.formDataUrl, {params: params});

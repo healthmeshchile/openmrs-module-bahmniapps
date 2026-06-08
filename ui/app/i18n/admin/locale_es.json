@@ -6,7 +6,7 @@
     "selectLocation": "Seleccione Ubicación",
     "clinical_key": "Clínico",
     "MESSAGE_DIALOG_OPTION_COPY": "Error de copia",
-    "MESSAGE_DIALOG_OPTION_OKAY": "Ok",
+    "MESSAGE_DIALOG_OPTION_OKAY": "OK",
     "PRIVILEGE_REQUIRED": "El usuario ha iniciado sesión pero no tiene los permisos necesarios",
     "FILTERS_HEADER_LABEL": "Filtros",
     "START_FROM_FILTER_LABEL": "Fecha de inicio",

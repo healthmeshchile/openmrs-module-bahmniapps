@@ -33,6 +33,25 @@ angular.module('bahmni.home')
                 });
             };
 
+            var getLocaleList = function (response) {
+                var localeList = response && response.data ? response.data.replace(/\s+/g, '').split(',').filter(Boolean) : [];
+                return localeList.length === 0 ? _.map(localeLanguages, 'code') : localeList;
+            };
+
+            var setLocales = function (localeList) {
+                localeList = localeList && localeList.length ? localeList : ['en'];
+                $scope.locales = [];
+                _.forEach(localeList, function (locale) {
+                    var localeLanguage = findLanguageByLocale(locale);
+                    if (_.isUndefined(localeLanguage)) {
+                        $scope.locales.push({"code": locale, "nativeName": locale});
+                    } else {
+                        $scope.locales.push(localeLanguage);
+                    }
+                });
+                $scope.selectedLocale = $translate.use() ? $translate.use() : $scope.locales[0].code;
+            };
+
             var logAuditForLoginAttempts = function (eventType, isFailedEvent) {
                 if ($scope.loginInfo.username) {
                     var messageParams = isFailedEvent ? {userName: $scope.loginInfo.username} : undefined;
@@ -67,25 +86,16 @@ angular.module('bahmni.home')
                 localeLanguages = response.data.locales;
             }).finally(function () {
                 promise.then(function (response) {
-                    var localeList = response.data.replace(/\s+/g, '').split(',').filter(Boolean);
-                    if (localeList.length === 0) {
-                        localeList = _.map(localeLanguages, 'code');
-                    }
-                    $scope.locales = [];
-                    _.forEach(localeList, function (locale) {
-                        var localeLanguage = findLanguageByLocale(locale);
-                        if (_.isUndefined(localeLanguage)) {
-                            $scope.locales.push({"code": locale, "nativeName": locale});
-                        } else {
-                            $scope.locales.push(localeLanguage);
-                        }
-                    });
-                    $scope.selectedLocale = $translate.use() ? $translate.use() : $scope.locales[0].code;
+                    setLocales(getLocaleList(response));
+                }, function () {
+                    setLocales(_.map(localeLanguages, 'code'));
                 });
             });
 
             localeService.defaultLocale().then(function (response) {
                 localStorage.setItem("openmrsDefaultLocale", response.data || "en");
+            }, function () {
+                localStorage.setItem("openmrsDefaultLocale", "en");
             });
 
             $scope.isSupportedBrowser = function () {

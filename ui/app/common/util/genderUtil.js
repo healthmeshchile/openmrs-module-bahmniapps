@@ -11,8 +11,19 @@
 
 Bahmni.Common.Util.GenderUtil = {
     translateGender: function (genderMap, $translate) {
+        var genderTranslationKeys = {
+            M: "GENDER_M",
+            F: "GENDER_F",
+            O: "GENDER_O",
+            MALE: "GENDER_M",
+            FEMALE: "GENDER_F",
+            OTHER: "GENDER_O"
+        };
+
         _.forEach(genderMap, function (value, key) {
-            var translationKey = "GENDER_" + key.toUpperCase();
+            var normalizedKey = key && key.toUpperCase();
+            var normalizedValue = value && value.toUpperCase();
+            var translationKey = genderTranslationKeys[normalizedKey] || genderTranslationKeys[normalizedValue] || "GENDER_" + normalizedKey;
             var translatedGender = $translate.instant(translationKey);
             if (translatedGender != translationKey) {
                 genderMap[key] = translatedGender;

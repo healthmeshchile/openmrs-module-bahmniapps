@@ -71,6 +71,21 @@ describe("LoginLocationController", function () {
 		});
 	};
 
+	var rejectedPromise = function () {
+		return {
+			then: function (success, failure) {
+				if (failure) {
+					failure({ status: 302 });
+				}
+				return rejectedPromise();
+			},
+			finally: function (callback) {
+				callback();
+				return this;
+			},
+		};
+	};
+
 	beforeEach(function () {
 		translate = jasmine.createSpyObj("$translate", ["use"]);
 		userService = jasmine.createSpyObj("userService", ["savePreferences"]);
@@ -162,5 +177,15 @@ describe("LoginLocationController", function () {
 		scopeMock.updateSessionLocation(selectedLocation);
 
 		expect(scopeMock.loginInfo.currentLocation).toEqual(selectedLocation);
+	});
+
+	it("should use configured locale languages when allowed locale list is not available before selecting location", function () {
+		localeService.allowedLocalesList.and.returnValue(rejectedPromise());
+		loginLocationController();
+
+		expect(scopeMock.locales).toEqual([
+			{ code: "en", nativeName: "English" },
+			{ code: "es", nativeName: "EspaÃ±ol" },
+		]);
 	});
 });

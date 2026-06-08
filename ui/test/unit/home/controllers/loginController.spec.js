@@ -70,6 +70,21 @@ describe('loginController', function () {
         });
     };
 
+    var rejectedPromise = function () {
+        return {
+            then: function (success, failure) {
+                if (failure) {
+                    failure({status: 302});
+                }
+                return rejectedPromise();
+            },
+            finally: function (callback) {
+                callback();
+                return this;
+            }
+        };
+    };
+
     describe("login", function () {
         beforeEach(function () {
             loginController();
@@ -166,6 +181,21 @@ describe('loginController', function () {
             {code: 'en', nativeName: 'English'},
             {code: 'es', nativeName: 'Español'}
         ]);
+    });
+
+    it('should use configured locale languages when allowed locale list is not available before login', function () {
+        localeService.allowedLocalesList.and.returnValue(rejectedPromise());
+        loginController();
+        expect(scopeMock.locales).toEqual([
+            {code: 'en', nativeName: 'English'},
+            {code: 'es', nativeName: 'EspaÃ±ol'}
+        ]);
+    });
+
+    it('should fallback to english when default locale is not available before login', function () {
+        localeService.defaultLocale.and.returnValue(rejectedPromise());
+        loginController();
+        expect(localStorage.getItem("openmrsDefaultLocale")).toBe("en");
     });
 
     it ("should fetch bahmniCore data and assign it to windows object ",function() {
