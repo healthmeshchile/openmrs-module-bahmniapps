@@ -187,6 +187,58 @@ describe('ConceptSetPageController', function () {
             expect(scope.consultation.observationForms[1].formVersion).toEqual( form2Data[1].version);
         });
 
+        it("should use the base locale for translated form names", function () {
+            var conceptResponseData = {
+                results: [
+                    {
+                        setMembers: []
+                    }
+                ]
+            };
+            mockConceptSetService(conceptResponseData);
+            var form2Data = [{
+                name: "Simple",
+                uuid: "71a11931-56bf-4792-9d12-81836aca0b1c",
+                version: "9",
+                nameTranslation: JSON.stringify([{locale: "es", display: "Simple en español"}]),
+                privileges: []
+            }];
+            mockformService(form2Data);
+            rootScope.currentUser = {
+                isFavouriteObsTemplate: function () {
+                    return false;
+                }
+            };
+            localStorage.setItem("NG_TRANSLATE_LANG_KEY", "es-CL");
+
+            createController();
+
+            expect(scope.consultation.observationForms[0].label).toEqual("Simple en español");
+        });
+
+        it("should use the locale fallback when the backend omits the form name translation", function () {
+            mockConceptSetService({results: [{setMembers: []}]});
+            mockformService([{
+                name: "Admission Letter",
+                uuid: "00409d39-6a9f-4981-a92a-cafdb6cbce6d",
+                version: "1",
+                nameTranslation: null,
+                privileges: []
+            }]);
+            translate.instant.and.callFake(function (key) {
+                return key === "FORM_NAME_ADMISSION_LETTER" ? "Carta de admisión" : key;
+            });
+            rootScope.currentUser = {
+                isFavouriteObsTemplate: function () {
+                    return false;
+                }
+            };
+
+            createController();
+
+            expect(scope.consultation.observationForms[0].label).toEqual("Carta de admisión");
+        });
+
         it("should load all obs templates along with forms from implementers interface", function () {
             var conceptResponseData = {
                 results: [

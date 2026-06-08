@@ -315,7 +315,15 @@ angular.module('bahmni.clinical')
             };
 
             $scope.getName = function (sample) {
-                var name = _.find(sample.names, {conceptNameType: "SHORT"}) || _.find(sample.names, {conceptNameType: "FULLY_SPECIFIED"});
+                var locale = (localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en").split("-")[0].split("_")[0];
+                var localizedNames = _.filter(sample.names, function (name) {
+                    return name.locale && name.locale.split("-")[0].split("_")[0] === locale;
+                });
+                var name = _.find(localizedNames, {conceptNameType: "SHORT"}) ||
+                    _.find(localizedNames, {conceptNameType: "FULLY_SPECIFIED"}) ||
+                    _.find(localizedNames, function (conceptName) { return !conceptName.conceptNameType; }) ||
+                    _.find(sample.names, {conceptNameType: "SHORT"}) ||
+                    _.find(sample.names, {conceptNameType: "FULLY_SPECIFIED"});
                 return (name && name.name) || $scope.getConceptName(sample);
             };
 

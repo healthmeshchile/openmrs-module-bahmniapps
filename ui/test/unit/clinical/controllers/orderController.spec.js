@@ -142,6 +142,26 @@ describe("OrderController", function () {
             };
             expect(scope.getName(sample)).toBe("Blood Specimen");
         });
+
+        it("should prefer a name in the selected locale", function () {
+            localStorage.setItem("NG_TRANSLATE_LANG_KEY", "es-CL");
+            var sample = {
+                "names": [
+                    {
+                        "name": "Blood Specimen",
+                        "conceptNameType": "FULLY_SPECIFIED",
+                        "locale": "en"
+                    },
+                    {
+                        "name": "Muestra de sangre",
+                        "conceptNameType": "FULLY_SPECIFIED",
+                        "locale": "es"
+                    }
+                ]
+            };
+
+            expect(scope.getName(sample)).toBe("Muestra de sangre");
+        });
     });
 
     describe("activateTab", function () {

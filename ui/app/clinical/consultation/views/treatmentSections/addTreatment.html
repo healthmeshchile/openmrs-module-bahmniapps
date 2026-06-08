@@ -121,7 +121,7 @@
                             </div>
                             <div class="field-value">
                                 <select id="route" class="route" ng-model="treatment.route"
-                                        ng-options="item.name as item.name for item in treatmentConfig.getRoutes()" ng-change="checkForContinuousMedication(treatment.route)">
+                                        ng-options="item.name as treatmentConfig.getRouteDisplayName(item.name) for item in treatmentConfig.getRoutes()" ng-change="checkForContinuousMedication(treatment.route)">
                                     <option value="">{{ ::treatmentConfig.translate('routePlaceHolder', 'MEDICATION_ROUTE_PLACEHOLDER') }} </option>
                                 </select>
                             </div>
@@ -164,7 +164,7 @@
                             </div>
                             <div class="field-value">
                                 <select id="route" class="route" ng-model="treatment.route"
-                                        ng-options="item.name as item.name for item in treatmentConfig.getRoutes()">
+                                        ng-options="item.name as treatmentConfig.getRouteDisplayName(item.name) for item in treatmentConfig.getRoutes()">
                                     <option value="">{{ ::treatmentConfig.translate('routePlaceHolder', 'MEDICATION_ROUTE_PLACEHOLDER') }} </option>
                                 </select>
                             </div>

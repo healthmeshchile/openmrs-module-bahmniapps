@@ -54,6 +54,11 @@ angular.module('bahmni.clinical').factory('treatmentConfig',
                     getRoutes: function () {
                         return drugOrderOptions.routes;
                     },
+                    getRouteDisplayName: function (route) {
+                        var routeKey = "MEDICATION_ROUTE_" + route.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+                        var translatedRoute = $translate.instant(routeKey);
+                        return translatedRoute === routeKey ? route : translatedRoute;
+                    },
                     getDurationUnits: function () {
                         return drugOrderOptions.durationUnits;
                     },

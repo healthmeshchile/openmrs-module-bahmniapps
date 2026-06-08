@@ -246,11 +246,16 @@ angular.module('bahmni.clinical')
                     var labels = observationForm.nameTranslation ? JSON.parse(observationForm.nameTranslation) : [];
                     var label = formName;
                     if (labels.length > 0) {
-                        var locale = localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en";
+                        var locale = (localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en").split("-")[0].split("_")[0];
                         var currentLabel = labels.find(function (label) {
-                            return label.locale === locale;
+                            return label.locale && label.locale.split("-")[0].split("_")[0] === locale;
                         });
                         if (currentLabel) { label = currentLabel.display; }
+                    }
+                    if (label === formName) {
+                        var formNameKey = "FORM_NAME_" + formName.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+                        var translatedFormName = $translate.instant(formNameKey);
+                        if (translatedFormName && translatedFormName !== formNameKey) { label = translatedFormName; }
                     }
                     if ($scope.isFormEditableByTheUser(observationForm)) {
                         var newForm = new Bahmni.ObservationForm(formUuid, $rootScope.currentUser,
