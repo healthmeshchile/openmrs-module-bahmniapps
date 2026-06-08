@@ -255,6 +255,12 @@
 								document.getElementsByClassName("title_text")[0];
 							titleTextElement.innerHTML = data.homePage.title_text;
 						}
+						if (data.homePage.get_started_text) {
+							var getStartedTextElement =
+								document.querySelector(".container > h4");
+							getStartedTextElement.innerHTML =
+								data.homePage.get_started_text;
+						}
 						if (data.homePage.bottomBanner) {
 							document.getElementById("bottom-banner-image").src =
 								data.homePage.bottomBanner;
