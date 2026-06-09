@@ -34,10 +34,10 @@ export const dashboardConfig = {
       label: "Indicaciones para el paciente",
       filePrefix: "Indicaciones",
       tagColor: "cyan",
-      observationConceptUuid: "9bb0795c-4ff0-0305-1990-000000000046",
+      observationConceptUuid: "163106AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       fields: [
         { label: "Fecha", source: "encounterDate" },
-        { label: "Indicaciones", conceptUuid: "9bb0795c-4ff0-0305-1990-000000000046", conceptDisplay: "Patient Instructions" },
+        { label: "Indicaciones", conceptUuid: "163106AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conceptDisplay: "nstructions to patient and/or family"" },
       ],
     },
     {
