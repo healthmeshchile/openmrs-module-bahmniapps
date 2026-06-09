@@ -16,6 +16,10 @@ describe("OrderController", function () {
     beforeEach(module('bahmni.common.conceptSet'));
     beforeEach(module('bahmni.clinical'));
 
+    afterEach(function () {
+        localStorage.removeItem("NG_TRANSLATE_LANG_KEY");
+    });
+
     beforeEach(inject(function ($controller, $rootScope) {
         scope = $rootScope.$new();
         rootScope = $rootScope;

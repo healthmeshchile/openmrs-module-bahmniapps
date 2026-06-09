@@ -122,10 +122,11 @@ angular.module('bahmni.common.displaycontrol.forms')
                     var formWithNameTranslation = $scope.formsWithNameTranslations.find(function (formWithNameTranslation) {
                         return formWithNameTranslation.formName === data.formName;
                     });
-                    var locale = localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en";
+                    var locale = (localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en").split("-")[0].split("_")[0];
                     var currentLabel = formWithNameTranslation && formWithNameTranslation.formNameTranslations
                            .find(function (formNameTranslation) {
-                               return formNameTranslation.locale === locale;
+                               return formNameTranslation.locale &&
+                                   formNameTranslation.locale.split("-")[0].split("_")[0] === locale;
                            });
                     if (currentLabel) {
                         return currentLabel.display;

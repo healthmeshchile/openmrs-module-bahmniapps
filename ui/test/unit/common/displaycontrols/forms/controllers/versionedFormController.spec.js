@@ -29,6 +29,7 @@ describe('versionedFormController', function () {
     }));
 
     beforeEach(inject(function ($rootScope, $httpBackend, $q, $controller) {
+        localStorage.setItem("NG_TRANSLATE_LANG_KEY", "en");
         scope = $rootScope;
         $aController = $controller;
         q = $q;
@@ -37,6 +38,10 @@ describe('versionedFormController', function () {
         mockBackend = $httpBackend;
         mockBackend.expectGET('../common/displaycontrols/forms/views/formsTable.html').respond("<div>dummy</div>");
     }));
+
+    afterEach(function () {
+        localStorage.removeItem("NG_TRANSLATE_LANG_KEY");
+    });
 
     var createController = function () {
         $aController('versionedFormController', {
@@ -95,6 +100,17 @@ describe('versionedFormController', function () {
         let formData = {formName: 'Simple'};
 
         expect(scope.getDisplayName(formData)).toEqual(nameTranslationForSimpleForm[0].display);
+    });
+
+    it('should use the base locale for translated form names', function () {
+        localStorage.setItem("NG_TRANSLATE_LANG_KEY", "es-CL");
+        createController();
+        scope.formsWithNameTranslations = [{
+            formName: "Simple",
+            formNameTranslations: [{locale: "es", display: "Simple_es"}]
+        }];
+
+        expect(scope.getDisplayName({formName: "Simple"})).toEqual("Simple_es");
     });
 
     it('should set formsNotFound to true when data is empty', function () {
