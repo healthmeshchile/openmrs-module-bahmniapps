@@ -28,7 +28,7 @@ angular.module('bahmni.common.conceptSet')
                 var formObservations = $scope.form.observations;
                 var collapse = $scope.form.collapseInnerSections && $scope.form.collapseInnerSections.value;
                 var validateForm = $scope.validateForm || false;
-                var locale = $translate.use();
+                var locale = ($translate.use() || "en").split("-")[0].split("_")[0];
 
                 if (!loadedFormDetails[formUuid]) {
                     spinner.forPromise(formService.getFormDetail(formUuid, { v: "custom:(resources:(value))" })

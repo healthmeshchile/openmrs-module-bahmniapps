@@ -78,13 +78,14 @@ angular.module('bahmni.common.displaycontrol.observation')
                     var formBuilderForm = formBuilderForms.find(function (form) { return form.name ===
                         formName; });
                     obsGroup.concept.shortName = formName;
-                    var locale = localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en";
+                    var locale = (localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en").split("-")[0].split("_")[0];
                     var formNameTranslations = formBuilderForm && formBuilderForm.nameTranslation
                         ? JSON.parse(formBuilderForm.nameTranslation) : [];
                     if (formNameTranslations.length > 0) {
                         var currentLabel = formNameTranslations
                             .find(function (formNameTranslation) {
-                                return formNameTranslation.locale === locale;
+                                return formNameTranslation.locale &&
+                                    formNameTranslation.locale.split("-")[0].split("_")[0] === locale;
                             });
                         if (currentLabel) {
                             obsGroup.concept.shortName = currentLabel.display;
@@ -127,7 +128,7 @@ angular.module('bahmni.common.displaycontrol.observation')
                         if (formDetailsAsString) {
                             var formDef = JSON.parse(formDetailsAsString);
                             formDef.version = observationForm.version;
-                            var locale = $window.localStorage["NG_TRANSLATE_LANG_KEY"] || "en";
+                            var locale = ($window.localStorage["NG_TRANSLATE_LANG_KEY"] || "en").split("-")[0].split("_")[0];
                             return formService.getFormTranslate(formDef.name, formDef.version, locale, formDef.uuid)
                                 .then(function (response) {
                                     var translationData = response.data;

@@ -66,10 +66,11 @@ angular.module('bahmni.common.obs')
                         var observationForm = getFormByFormName(allForms, $scope.observation.formName, $scope.observation.formVersion);
                         var label = $scope.observation.formName;
                         if (observationForm) {
-                            var locale = localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en";
+                            var locale = (localStorage.getItem("NG_TRANSLATE_LANG_KEY") || "en").split("-")[0].split("_")[0];
                             var currentLabel = observationForm.nameTranslation && JSON.parse(observationForm.nameTranslation)
                                 .find(function (formNameTranslation) {
-                                    return formNameTranslation.locale === locale;
+                                    return formNameTranslation.locale &&
+                                        formNameTranslation.locale.split("-")[0].split("_")[0] === locale;
                                 });
                             if (currentLabel) {
                                 label = currentLabel.display;

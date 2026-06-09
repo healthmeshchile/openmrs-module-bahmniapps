@@ -279,6 +279,29 @@ describe("ensure that the directive edit-observation works properly", function (
         expect(formDetails.observations.length).toBe(0);
     });
 
+    it('should use the base locale for translated form names when editing an observation', function () {
+        var allForms = [{
+            name: 'EditForm',
+            version: '3',
+            uuid: 'editFormUuid',
+            nameTranslation: JSON.stringify([{locale: 'es', display: 'Formulario editado'}])
+        }];
+        formService.getAllForms.and.returnValue(specUtil.respondWithPromise(q, {data: allForms}));
+        rootScope.currentUser = {isFavouriteObsTemplate: function(){}};
+        localStorage.setItem("NG_TRANSLATE_LANG_KEY", "es-CL");
+        scope = rootScope.$new();
+        scope.observation = Object.assign({}, observation, {formType: 'v2', formName: 'EditForm', formVersion: '3'});
+        httpBackend.expectGET("../common/obs/views/editObservation.html").respond("<div>dummy</div>");
+
+        var compiledEle = compile(html)(scope);
+        var compiledScope = compiledEle.isolateScope();
+        httpBackend.flush();
+        scope.$digest();
+
+        expect(compiledScope.formDetails.label).toBe('Formulario editado');
+        localStorage.removeItem("NG_TRANSLATE_LANG_KEY");
+    });
+
     it('should not set formDetails for given observation when the observation formType is not v2', function () {
         scope = rootScope.$new();
         scope.observation = Object.assign({}, observation, {formType: 'v3', formName: 'EditForm', formVersion: '3'});

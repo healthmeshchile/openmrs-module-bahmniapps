@@ -212,6 +212,29 @@ describe("FormRecordTreeBuildService", function () {
         expect(value.groupMembers[1].concept.shortName).toBe("head nose lateral");
     });
 
+    it("should use the base locale for translated form names", function () {
+        localStorage.setItem("NG_TRANSLATE_LANG_KEY", "es-CL");
+        observations = [{
+            "value": [{
+                "groupMembers": [],
+                "formNamespace": "Bahmni",
+                "formFieldPath": "test.2/1-0",
+                "concept": {
+                    "shortName": "HEIGHT"
+                }
+            }]
+        }];
+        var forms = [{
+            name: "test",
+            nameTranslation: JSON.stringify([{locale: "es", display: "Formulario de prueba"}])
+        }];
+
+        formRecordTreeBuildService.createObsGroupForForm(observations, forms);
+
+        expect(observations[0].value[0].concept.shortName).toBe("Formulario de prueba");
+        localStorage.removeItem("NG_TRANSLATE_LANG_KEY");
+    });
+
     it("should construct obs group for obsGroup observations from one form", function () {
         var obsGroupOne = {
             "groupMembers": [{
