@@ -159,6 +159,7 @@
     "MEDICATION_ROUTE_INTRACUTANEOUS": "Vía intracutánea",
     "MEDICATION_ROUTE_INTRADERMAL": "Vía intradérmica",
     "MEDICATION_ROUTE_INTRAPERITONEAL": "Vía intraperitoneal",
+    "MEDICATION_ROUTE_INTRATHECAL": "Vía intratecal",
     "MEDICATION_ROUTE_INTRAOSSEOUS": "Vía intraósea",
     "MEDICATION_ROUTE_TOPICAL": "Vía tópica",
     "MEDICATION_ROUTE_NASAL": "Vía nasal",

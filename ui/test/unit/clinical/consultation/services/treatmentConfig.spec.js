@@ -138,10 +138,10 @@ describe('treatmentConfig', function () {
     });
 
     it("should translate route labels without changing their configured value", function (done) {
+        injectTreatmentConfig("tbTab");
         translate.instant.and.callFake(function (key) {
             return key === "MEDICATION_ROUTE_ORAL" ? "Vía oral" : key;
         });
-        injectTreatmentConfig("tbTab");
         treatmentConfig.then(function (config) {
             expect(config.getRouteDisplayName("Oral")).toBe("Vía oral");
             expect(config.getRouteDisplayName("Unknown route")).toBe("Unknown route");

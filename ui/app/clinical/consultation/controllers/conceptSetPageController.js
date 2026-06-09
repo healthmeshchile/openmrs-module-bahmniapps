@@ -252,11 +252,6 @@ angular.module('bahmni.clinical')
                         });
                         if (currentLabel) { label = currentLabel.display; }
                     }
-                    if (label === formName) {
-                        var formNameKey = "FORM_NAME_" + formName.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-                        var translatedFormName = $translate.instant(formNameKey);
-                        if (translatedFormName && translatedFormName !== formNameKey) { label = translatedFormName; }
-                    }
                     if ($scope.isFormEditableByTheUser(observationForm)) {
                         var newForm = new Bahmni.ObservationForm(formUuid, $rootScope.currentUser,
                                                                    formName, formVersion, observations, label, extension);

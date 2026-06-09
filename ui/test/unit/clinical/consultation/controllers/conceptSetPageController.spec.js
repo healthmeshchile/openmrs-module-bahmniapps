@@ -17,6 +17,10 @@ describe('ConceptSetPageController', function () {
     }};
     beforeEach(module('bahmni.common.uiHelper'));
     beforeEach(module('bahmni.clinical'));
+
+    afterEach(function () {
+        localStorage.removeItem("NG_TRANSLATE_LANG_KEY");
+    });
     var initController = function () {
         inject(function ($controller, $rootScope) {
             controller = $controller;
@@ -214,29 +218,6 @@ describe('ConceptSetPageController', function () {
             createController();
 
             expect(scope.consultation.observationForms[0].label).toEqual("Simple en español");
-        });
-
-        it("should use the locale fallback when the backend omits the form name translation", function () {
-            mockConceptSetService({results: [{setMembers: []}]});
-            mockformService([{
-                name: "Admission Letter",
-                uuid: "00409d39-6a9f-4981-a92a-cafdb6cbce6d",
-                version: "1",
-                nameTranslation: null,
-                privileges: []
-            }]);
-            translate.instant.and.callFake(function (key) {
-                return key === "FORM_NAME_ADMISSION_LETTER" ? "Carta de admisión" : key;
-            });
-            rootScope.currentUser = {
-                isFavouriteObsTemplate: function () {
-                    return false;
-                }
-            };
-
-            createController();
-
-            expect(scope.consultation.observationForms[0].label).toEqual("Carta de admisión");
         });
 
         it("should load all obs templates along with forms from implementers interface", function () {
