@@ -37,7 +37,7 @@ export const dashboardConfig = {
       observationConceptUuid: "163106AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       fields: [
         { label: "Fecha", source: "encounterDate" },
-        { label: "Indicaciones", conceptUuid: "163106AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conceptDisplay: "nstructions to patient and/or family"" },
+        { label: "Indicaciones", conceptUuid: "163106AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conceptDisplay: "Instructions to patient and/or family" },
       ],
     },
     {

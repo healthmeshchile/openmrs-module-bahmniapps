@@ -1596,6 +1596,7 @@ export function AllOrdersDashboard(props) {
           <button
             type="button"
             className={`all-orders__summary-card ${categoryFilter === "all" ? "is-active" : ""}`}
+            aria-pressed={categoryFilter === "all"}
             onClick={() => handleCategoryFilter("all")}
           >
             <span className="all-orders__summary-label">Todas las órdenes</span>
@@ -1606,6 +1607,7 @@ export function AllOrdersDashboard(props) {
               type="button"
               key={key}
               className={`all-orders__summary-card ${categoryFilter === key ? "is-active" : ""}`}
+              aria-pressed={categoryFilter === key}
               onClick={() => handleCategoryFilter(key)}
             >
               <span className="all-orders__summary-label">{cfg.label}</span>
@@ -1651,6 +1653,7 @@ export function AllOrdersDashboard(props) {
             </div>
           )}
           <Button
+            className="all-orders__clear-filters"
             kind="ghost"
             size="sm"
             onClick={() => {
@@ -1662,6 +1665,29 @@ export function AllOrdersDashboard(props) {
             Limpiar filtros
           </Button>
         </div>
+
+        {selectedOrders.length > 0 && (
+          <div className="all-orders__selection-bar">
+            <div>
+              <strong>{selectedOrders.length}</strong> orden{selectedOrders.length !== 1 ? "es" : ""} seleccionada{selectedOrders.length !== 1 ? "s" : ""}
+              <button type="button" onClick={() => setSelectedOrderIds([])}>Limpiar selección</button>
+            </div>
+            <div className="all-orders__selection-actions">
+              <Button
+                kind="secondary"
+                size="sm"
+                renderIcon={Printer16}
+                disabled={printingSection === "selected"}
+                onClick={handlePrintSelected}
+              >
+                {printingSection === "selected" ? "Generando…" : "Descargar PDF"}
+              </Button>
+              <Button kind="primary" size="sm" renderIcon={Share16} onClick={handleShareSelected}>
+                Enviar por correo
+              </Button>
+            </div>
+          </div>
+        )}
 
         {totalOrders === 0 ? (
           <div className="all-orders__global-empty">
@@ -1692,29 +1718,6 @@ export function AllOrdersDashboard(props) {
             totalItems={filteredOrders.length}
             onPageChange={setUnifiedPagination}
           />
-        )}
-
-        {selectedOrders.length > 0 && (
-          <div className="all-orders__selection-bar">
-            <div>
-              <strong>{selectedOrders.length}</strong> orden{selectedOrders.length !== 1 ? "es" : ""} seleccionada{selectedOrders.length !== 1 ? "s" : ""}
-              <button type="button" onClick={() => setSelectedOrderIds([])}>Limpiar selección</button>
-            </div>
-            <div className="all-orders__selection-actions">
-              <Button
-                kind="secondary"
-                size="sm"
-                renderIcon={Printer16}
-                disabled={printingSection === "selected"}
-                onClick={handlePrintSelected}
-              >
-                {printingSection === "selected" ? "Generando…" : "Descargar PDF"}
-              </Button>
-              <Button kind="primary" size="sm" renderIcon={Share16} onClick={handleShareSelected}>
-                Enviar por correo
-              </Button>
-            </div>
-          </div>
         )}
 
         {/* ── Modales ── */}
