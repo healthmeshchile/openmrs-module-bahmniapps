@@ -9,6 +9,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
 import {
   DataTable,
   TableContainer,
@@ -34,6 +36,10 @@ import "../../../styles/carbon-conflict-fixes.scss";
 import "../../../styles/carbon-theme.scss";
 import "../../../styles/common.scss";
 import "./AllOrdersDashboard.scss";
+
+// El microfrontend incluye su propia versión de pdfMake y sus fuentes. Así no
+// depende de la versión global que expone la aplicación clínica de Bahmni.
+pdfMake.vfs = pdfFonts?.pdfMake?.vfs ?? pdfFonts?.vfs ?? pdfFonts;
 
 // ─── Columnas por tipo de orden ───────────────────────────────────────────────
 export const LAB_HEADERS = [
@@ -165,6 +171,52 @@ const SECTION_TAG_TYPES = {
 
 const getOrderDescription = (order) =>
   order.drugName || order.conceptName || order.details || "-";
+
+const openPdfInWindow = (base64, pdfWindow) => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const objectUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+
+  if (pdfWindow) {
+    pdfWindow.location.href = objectUrl;
+  } else {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.click();
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+};
+
+// pdfMake procesa los píxeles de la imagen en memoria. El logo institucional
+// original tiene 2500 px de ancho, excesivo para una cabecera de 42 pt y causa
+// problemas en algunos navegadores al construir el PDF. Se normaliza a un PNG
+// pequeño antes de entregárselo a pdfMake.
+const preparePdfLogo = (blob) => new Promise((resolve) => {
+  const sourceUrl = URL.createObjectURL(blob);
+  const image = new Image();
+
+  image.onload = () => {
+    const maxWidth = 320;
+    const maxHeight = 320;
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(sourceUrl);
+    resolve(canvas.toDataURL("image/png"));
+  };
+
+  image.onerror = () => {
+    URL.revokeObjectURL(sourceUrl);
+    resolve("");
+  };
+  image.src = sourceUrl;
+});
 
 // Paginación inicial que incluye secciones fijas + formularios
 // ─── Componente Tabla genérica ─────────────────────────────────────────────────
@@ -361,6 +413,10 @@ export function AllOrdersDashboard(props) {
     patient?.display ||
     patient?.name ||
     "Paciente";
+  const patientIdentifier =
+    patient?.identifier ||
+    patient?.identifiers?.[0]?.identifier ||
+    "No registrado";
 
   // ── State ──────────────────────────────────────────────────────────────────
   // institution se carga desde OpenMRS (systemsetting/location) y cae al
@@ -383,6 +439,14 @@ export function AllOrdersDashboard(props) {
   // patientEmail se carga fetcheando los atributos completos del paciente
   // porque hostData.patient no incluye person.attributes.
   const [patientEmail, setPatientEmail] = useState("");
+  const [patientClinicalInfo, setPatientClinicalInfo] = useState({
+    identifier: patientIdentifier,
+    gender: patient?.person?.gender || "",
+    birthdate: patient?.person?.birthdate || "",
+  });
+  // Se precarga fuera de la acción del usuario. pdfMake recibe la imagen por
+  // nombre desde `images`, igual que el patrón de referencia del proyecto.
+  const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState("");
   const [emailSending, setEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null); // 'success' | 'error' | null
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -515,7 +579,7 @@ export function AllOrdersDashboard(props) {
         ),
         fetch(
           `/openmrs/ws/rest/v1/patient/${patientUuid}` +
-          `?v=custom:(uuid,person:(attributes:(value,attributeType:(display))))`,
+          `?v=custom:(uuid,identifiers:(identifier,identifierType:(name)),person:(gender,birthdate,attributes:(value,attributeType:(display))))`,
           credOpts
         ),
       ]);
@@ -534,6 +598,11 @@ export function AllOrdersDashboard(props) {
       if (patientRes.ok) {
         const patientData = await patientRes.json();
         const attrs = patientData?.person?.attributes || [];
+        setPatientClinicalInfo({
+          identifier: patientData?.identifiers?.[0]?.identifier || patientIdentifier,
+          gender: patientData?.person?.gender || "",
+          birthdate: patientData?.person?.birthdate || "",
+        });
         const emailAttr = attrs.find(
           (a) =>
             a?.attributeType?.display?.toLowerCase() === "email" ||
@@ -648,11 +717,39 @@ export function AllOrdersDashboard(props) {
           : o.concept?.name?.display) ||
         "-";
 
-      const extractOrderer = (o) =>
-        (typeof o.provider === "string" ? o.provider : null) ||
-        o.orderer?.person?.display ||
-        o.orderer?.display ||
-        "-";
+      const isUuid = (value) =>
+        typeof value === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+      const displayProfessional = (candidate) => {
+        if (!candidate) return "";
+        if (typeof candidate === "string") return isUuid(candidate) ? "" : candidate;
+
+        const person = candidate.person || candidate;
+        const preferredName = person.preferredName || person.name || {};
+        const fullName = [
+          preferredName.givenName || person.givenName,
+          preferredName.middleName || person.middleName,
+          preferredName.familyName || person.familyName,
+        ].filter(Boolean).join(" ");
+
+        return person.display || candidate.display || fullName || candidate.name || "";
+      };
+
+      const extractOrderer = (o) => {
+        const encounterProviders = o.encounter?.encounterProviders || o.encounterProviders || [];
+        const candidates = [
+          o.orderer,
+          o.provider,
+          o.providerName,
+          o.ordererName,
+          ...encounterProviders.map((entry) => entry.provider || entry),
+          o.encounter?.provider,
+          o.encounter?.creator,
+          o.creator,
+        ];
+        return candidates.map(displayProfessional).find(Boolean) || "-";
+      };
 
       const mapOrder = (o, i, type, sectionKey) => ({
         id: o.uuid || `${sectionKey}-${i}`,
@@ -672,6 +769,7 @@ export function AllOrdersDashboard(props) {
         const dose = o.dosingInstructions?.dose;
         const units = o.dosingInstructions?.doseUnits?.display || "";
         const freq = o.dosingInstructions?.frequency?.display || "";
+        const route = o.dosingInstructions?.route?.display || o.route?.display || "";
         const dur = o.duration
           ? `${o.duration} ${o.durationUnits?.display || ""}`.trim()
           : "";
@@ -684,6 +782,11 @@ export function AllOrdersDashboard(props) {
           orderNumber: o.orderNumber || "-",
           drugName: o.drug?.display || o.drug?.name || o.drugNonCoded || "-",
           dosage,
+          dose: dose != null ? `${dose} ${units}`.trim() : "",
+          frequency: freq,
+          route,
+          duration: dur,
+          quantity: o.quantity != null ? `${o.quantity} ${o.quantityUnits?.display || ""}`.trim() : "",
           orderDate: formatDate(o.dateActivated || o.scheduledDate),
           _rawDate: o.dateActivated || o.scheduledDate,
           visitUuid: o.encounter?.visit?.uuid || null,
@@ -714,6 +817,7 @@ export function AllOrdersDashboard(props) {
           orderDate: formatDate(enc.encounterDatetime),
           _rawDate: enc.encounterDatetime,
           visitUuid: enc.visit?.uuid || null,
+          orderer: extractOrderer(enc),
           sectionKey: fc.key,
           type: fc.label,
           details: Object.entries(obsMap)
@@ -743,6 +847,7 @@ export function AllOrdersDashboard(props) {
           orderDate: formatDate(obs.obsDatetime || obs.encounter?.encounterDatetime),
           _rawDate:  obs.obsDatetime || obs.encounter?.encounterDatetime,
           visitUuid: obs.encounter?.visit?.uuid || null,
+          orderer: extractOrderer(obs.encounter || obs),
           sectionKey: fc.key,
           type:       fc.label,
           details:    obsValue,
@@ -775,6 +880,7 @@ export function AllOrdersDashboard(props) {
           orderDate: formatDate(group.encounterDatetime || group.obsDatetime),
           _rawDate: group.encounterDatetime || group.obsDatetime,
           visitUuid: group.visitUuid || null,
+          orderer: group.orderer || "-",
           sectionKey: fc.key,
           type: fc.label,
           details: detailLines.join("\n"),
@@ -803,6 +909,7 @@ export function AllOrdersDashboard(props) {
           encounterDatetime: obsGroup.encounter?.encounterDatetime,
           obsDatetime: obsGroup.obsDatetime,
           visitUuid: obsGroup.encounter?.visit?.uuid || null,
+          orderer: extractOrderer(obsGroup.encounter || obsGroup),
           obsMap,
         }, fc, i);
       };
@@ -819,6 +926,8 @@ export function AllOrdersDashboard(props) {
               `&v=custom:(uuid,obsDatetime,concept:(uuid),` +
               `groupMembers:(uuid,value,valueText,concept:(uuid)),` +
               `encounter:(uuid,encounterDatetime,` +
+              `creator:(display,person:(display)),` +
+              `encounterProviders:(provider:(display,person:(display))),` +
               `visit:(uuid,visitType:(display))))` +
               `&limit=100`;
             const res = await fetch(url, credOpts);
@@ -838,6 +947,8 @@ export function AllOrdersDashboard(props) {
                   `&concept=${conceptUuid}` +
                   `&v=custom:(uuid,obsDatetime,value,valueText,concept:(uuid),` +
                   `encounter:(uuid,encounterDatetime,` +
+                  `creator:(display,person:(display)),` +
+                  `encounterProviders:(provider:(display,person:(display))),` +
                   `visit:(uuid,visitType:(display))))` +
                   `&limit=100`;
                 const res = await fetch(url, credOpts);
@@ -859,6 +970,7 @@ export function AllOrdersDashboard(props) {
                 encounterDatetime: obs.encounter?.encounterDatetime,
                 obsDatetime: obs.obsDatetime,
                 visitUuid: obs.encounter?.visit?.uuid || null,
+                orderer: extractOrderer(obs.encounter || obs),
                 obsMap: {},
               };
               groups[groupId].obsMap[conceptName] = obsValue;
@@ -873,6 +985,8 @@ export function AllOrdersDashboard(props) {
               `&concept=${cfg.observationConceptUuid}` +
               `&v=custom:(uuid,obsDatetime,value,valueText,concept:(uuid),` +
               `encounter:(uuid,encounterDatetime,` +
+              `creator:(display,person:(display)),` +
+              `encounterProviders:(provider:(display,person:(display))),` +
               `visit:(uuid,visitType:(display))))` +
               `&limit=100`;
             const res = await fetch(url, credOpts);
@@ -888,6 +1002,8 @@ export function AllOrdersDashboard(props) {
             `?patient=${patientUuid}` +
             `&encounterType=${cfg.encounterTypeUuid}` +
             `&v=custom:(uuid,encounterDatetime,` +
+            `creator:(display,person:(display)),` +
+            `encounterProviders:(provider:(display,person:(display))),` +
             `obs:(uuid,concept:(display),value,valueText),` +
             `visit:(uuid,visitType:(display)))` +
             `&limit=100`;
@@ -924,6 +1040,28 @@ export function AllOrdersDashboard(props) {
 
   useEffect(() => {
     loadInstitutionData();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("/bahmni_config/openmrs/apps/home/logo.png")
+      .then((response) => {
+        if (!response.ok) throw new Error("No fue posible cargar el logo institucional");
+        return response.blob();
+      })
+      .then(preparePdfLogo)
+      .then((dataUrl) => {
+        if (isMounted) setPdfLogoDataUrl(dataUrl);
+      })
+      .catch(() => {
+        // Un PDF sin logo sigue siendo válido si el recurso no está disponible.
+        if (isMounted) setPdfLogoDataUrl("");
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -1024,8 +1162,7 @@ export function AllOrdersDashboard(props) {
   // overrideOrders: si se pasa, usa ese array en lugar de allOrders[sectionKey].
   // Permite generar el PDF de una sola fila pasando [order].
   const generateSectionPdfBase64 = useCallback(
-    (sectionKey, overrideOrders) => {
-      return new Promise((resolve, reject) => {
+    async (sectionKey, overrideOrders) => {
         try {
           const cfg = ALL_SECTIONS_CONFIG[sectionKey];
           const orders = overrideOrders !== undefined
@@ -1033,7 +1170,38 @@ export function AllOrdersDashboard(props) {
             : allOrders[sectionKey];
           // institution viene del estado (cargado dinámicamente desde OpenMRS)
           const today = new Date().toLocaleDateString("es-CL");
-          const providerName = provider?.person?.display || provider?.display || "";
+          // La orden conserva quién la emitió. Solo cuando ese dato no existe se
+          // utiliza el profesional de la sesión como respaldo.
+          const ordererNames = [...new Set(
+            orders
+              .map((order) => order.orderer)
+              .filter((name) => name && name !== "-")
+          )];
+          const sessionProviderName = provider?.person?.display || provider?.display || "";
+          const signingProfessionals = ordererNames.length > 0
+            ? ordererNames
+            : (sessionProviderName ? [sessionProviderName] : []);
+          const providerName = signingProfessionals.join(", ") || "No registrado";
+          const electronicSignatureTimestamp = new Date().toLocaleString("es-CL", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          });
+          const documentTitle = sectionKey === "medication" ? "RECETA MÉDICA" : "ORDEN CLÍNICA";
+          const selectedVisit = visits.find((visit) => visit.uuid === selectedVisitUuid) || activeVisit;
+          const formatDate = (value) => value
+            ? new Date(value).toLocaleDateString("es-CL")
+            : "No registrado";
+          const age = patientClinicalInfo.birthdate
+            ? Math.floor((Date.now() - new Date(patientClinicalInfo.birthdate).getTime()) / 31557600000)
+            : null;
+          const gender = patientClinicalInfo.gender === "M"
+            ? "Masculino"
+            : patientClinicalInfo.gender === "F"
+              ? "Femenino"
+              : patientClinicalInfo.gender || "No registrado";
+          const visitLabel = selectedVisit
+            ? `${formatDate(selectedVisit.startDatetime)} · ${selectedVisit.visitType?.display || "Visita"}${selectedVisit.location?.display ? ` · ${selectedVisit.location.display}` : ""}`
+            : "Sin visita registrada";
 
           const C_BLUE       = "#1e40af";
           const C_BLUE_LIGHT = "#dbeafe";
@@ -1042,7 +1210,6 @@ export function AllOrdersDashboard(props) {
           const C_GRAY       = "#555555";
           const C_BORDER     = "#d1d5db";
           const LINE_W       = 515;
-
           const tableLayouts = {
             ordersLayout: {
               hLineWidth: () => 0.5,
@@ -1068,21 +1235,28 @@ export function AllOrdersDashboard(props) {
 
           const content = [];
 
-          // Cabecera institucional
+          // Cabecera institucional y del documento clínico
           content.push({
             columns: [
+              ...(pdfLogoDataUrl
+                ? [{ image: "organizationLogo", width: 42, margin: [0, 0, 8, 0] }]
+                : []),
               {
                 width: "*",
                 stack: [
-                  { text: institution.name, fontSize: 13, bold: true, color: C_BLUE },
-                  { text: institution.address, fontSize: 8.5, color: C_GRAY, margin: [0, 2, 0, 0] },
-                  { text: `${institution.phone}  |  ${institution.email}`, fontSize: 8.5, color: C_GRAY, margin: [0, 1, 0, 0] },
+                  { text: institution.name || "Centro de Salud", fontSize: 14, bold: true, color: C_BLUE },
+                  { text: institution.address || "", fontSize: 8.5, color: C_GRAY, margin: [0, 2, 0, 0] },
+                  { text: [institution.phone, institution.email].filter(Boolean).join("  |  "), fontSize: 8.5, color: C_GRAY, margin: [0, 1, 0, 0] },
                 ],
               },
               {
                 width: "auto",
                 alignment: "right",
-                stack: [{ text: `Fecha: ${today}`, fontSize: 8.5, color: C_GRAY }],
+                stack: [
+                  { text: documentTitle, fontSize: 11, bold: true, color: C_BLUE },
+                  { text: cfg.label, fontSize: 8.5, color: C_GRAY, margin: [0, 2, 0, 0] },
+                  { text: `Emisión: ${today}`, fontSize: 8.5, color: C_GRAY, margin: [0, 2, 0, 0] },
+                ],
               },
             ],
             columnGap: 10,
@@ -1095,37 +1269,29 @@ export function AllOrdersDashboard(props) {
             margin: [0, 0, 0, 8],
           });
 
-          // Título de la sección
-          content.push({
-            text: cfg.label.toUpperCase(),
-            fontSize: 11,
-            bold: true,
-            alignment: "center",
-            color: "#1e3a5f",
-            margin: [0, 0, 0, 8],
-          });
-
-          // Datos del paciente
+          // Identificación clínica del paciente
           content.push({
             layout: "patientLayout",
             table: {
-              widths: ["*", "*"],
+              widths: ["*", "*", "*"],
               body: [
                 [
-                  { text: [{ text: "Paciente: ", bold: true }, patientName], fontSize: 8.5, fillColor: "#eff6ff" },
-                  { text: [{ text: "Profesional: ", bold: true }, providerName], fontSize: 8.5, fillColor: "#eff6ff" },
+                  { text: [{ text: "PACIENTE\n", bold: true, color: C_GRAY }, { text: patientName, bold: true }], fontSize: 8.5, fillColor: "#eff6ff" },
+                  { text: [{ text: "IDENTIFICADOR\n", bold: true, color: C_GRAY }, { text: patientClinicalInfo.identifier || patientIdentifier }], fontSize: 8.5, fillColor: "#eff6ff" },
+                  { text: [{ text: "SEXO / EDAD\n", bold: true, color: C_GRAY }, { text: `${gender}${age !== null ? ` / ${age} años` : ""}` }], fontSize: 8.5, fillColor: "#eff6ff" },
                 ],
                 [
                   {
                     colSpan: 2,
                     text: [
-                      { text: "Visita: ", bold: true },
-                      activeVisit ? activeVisit.visitType?.display || activeVisit.uuid : "Sin visita activa",
+                      { text: "VISITA\n", bold: true, color: C_GRAY },
+                      { text: visitLabel },
                     ],
                     fontSize: 8.5,
                     fillColor: "#eff6ff",
                   },
                   {},
+                  { text: [{ text: "PROFESIONAL\n", bold: true, color: C_GRAY }, { text: providerName || "No registrado" }], fontSize: 8.5, fillColor: "#eff6ff" },
                 ],
               ],
             },
@@ -1133,30 +1299,92 @@ export function AllOrdersDashboard(props) {
           });
 
           // Tabla de órdenes de la sección
-          content.push({
-            layout: "ordersLayout",
-            table: {
-              headerRows: 1,
-              widths: cfg.widths,
-              body: [
-                cfg.headers.map((h) => ({
-                  text: h,
-                  bold: true,
-                  fontSize: 8,
-                  color: "#1e3a5f",
-                  fillColor: C_BLUE_LIGHT,
-                })),
-                ...cfg.getRows(orders).map((cells, i) =>
-                  cells.map((c) => ({
-                    text: String(c || "–"),
+          if (sectionKey === "medication") {
+            content.push({
+              text: "INDICACIONES PARA EL PACIENTE",
+              fontSize: 9.5,
+              bold: true,
+              color: "#1e3a5f",
+              margin: [0, 0, 0, 5],
+            });
+
+            orders.forEach((order, index) => {
+              const instructionLines = [
+                order.dose && `Dosis: ${order.dose}`,
+                order.route && `Vía: ${order.route}`,
+                order.frequency && `Frecuencia: ${order.frequency}`,
+                order.duration && `Duración: ${order.duration}`,
+                order.quantity && `Cantidad a dispensar: ${order.quantity}`,
+              ].filter(Boolean);
+
+              content.push({
+                layout: "patientLayout",
+                table: {
+                  widths: [28, "*"],
+                  body: [[
+                    {
+                      text: String(index + 1),
+                      alignment: "center",
+                      bold: true,
+                      fontSize: 12,
+                      color: C_BLUE,
+                      fillColor: C_BLUE_LIGHT,
+                    },
+                    {
+                      stack: [
+                        { text: order.drugName || "Medicamento no registrado", fontSize: 11.5, bold: true, color: "#172554" },
+                        { text: instructionLines.join("   ·   ") || `Indicación registrada: ${order.dosage || "No especificada"}`, fontSize: 8.5, margin: [0, 3, 0, 0] },
+                        ...(order.details ? [{ text: `Indicaciones adicionales: ${order.details}`, fontSize: 8.5, italics: true, color: C_GRAY, margin: [0, 3, 0, 0] }] : []),
+                        ...(order.orderer && order.orderer !== "-" ? [{ text: `Profesional emisor: ${order.orderer}`, fontSize: 8, color: C_GRAY, margin: [0, 3, 0, 0] }] : []),
+                      ],
+                      fillColor: index % 2 === 0 ? "#ffffff" : "#f8fbff",
+                    },
+                  ]],
+                },
+                margin: [0, 0, 0, 5],
+              });
+            });
+
+            content.push({
+              text: "Siga la dosis y horarios indicados. Ante dudas o reacciones adversas, consulte al equipo de salud antes de suspender el tratamiento.",
+              fontSize: 8,
+              color: C_GRAY,
+              margin: [0, 5, 0, 8],
+            });
+          } else {
+            content.push({
+              text: "DETALLE DE ÓRDENES",
+              fontSize: 9.5,
+              bold: true,
+              color: "#1e3a5f",
+              margin: [0, 0, 0, 5],
+            });
+
+            content.push({
+              layout: "ordersLayout",
+              table: {
+                headerRows: 1,
+                widths: cfg.widths,
+                body: [
+                  cfg.headers.map((h) => ({
+                    text: h,
+                    bold: true,
                     fontSize: 8,
-                    fillColor: i % 2 === 0 ? "#ffffff" : C_ALT_ROW,
-                  }))
-                ),
-              ],
-            },
-            margin: [0, 0, 0, 8],
-          });
+                    color: "#1e3a5f",
+                    fillColor: C_BLUE_LIGHT,
+                  })),
+                  ...cfg.getRows(orders).map((cells, i) =>
+                    cells.map((c) => ({
+                      text: String(c || "–"),
+                      fontSize: 8,
+                      fillColor: i % 2 === 0 ? "#ffffff" : C_ALT_ROW,
+                    }))
+                  ),
+                ],
+              },
+              margin: [0, 0, 0, 8],
+            });
+          }
 
           // Línea de cierre
           content.push({
@@ -1164,56 +1392,96 @@ export function AllOrdersDashboard(props) {
             margin: [0, 16, 0, 8],
           });
 
-          // Pie de página
+          // Firma electrónica: informa al paciente quién emitió el documento y
+          // evita presentar líneas de firma manual que no aplican a este flujo.
           content.push({
-            columns: [
-              {
-                width: "*",
-                stack: [
-                  { text: [{ text: "Profesional: ", bold: true }, providerName], fontSize: 8.5 },
-                  { text: "Firma: _______________________", fontSize: 8.5, margin: [0, 12, 0, 0] },
-                  { text: "RUT: __________________________", fontSize: 8.5, margin: [0, 4, 0, 0] },
-                ],
-              },
-              {
-                width: "auto",
-                alignment: "right",
-                stack: [
-                  { text: institution.name, fontSize: 8.5 },
-                  { text: institution.address, fontSize: 8.5, margin: [0, 2, 0, 0] },
-                ],
-              },
-            ],
-            columnGap: 10,
+            layout: "patientLayout",
+            table: {
+              widths: [78, "*", "auto"],
+              body: [[
+                {
+                  text: "FIRMA\nELECTRÓNICA",
+                  bold: true,
+                  fontSize: 8,
+                  alignment: "center",
+                  color: C_BLUE,
+                  fillColor: C_BLUE_LIGHT,
+                  margin: [0, 5, 0, 0],
+                },
+                {
+                  stack: [
+                    { text: "DOCUMENTO FIRMADO ELECTRÓNICAMENTE", bold: true, fontSize: 8.5, color: "#172554" },
+                    { text: `Firmante${signingProfessionals.length === 1 ? "" : "s"}: ${providerName}`, fontSize: 8.5, margin: [0, 2, 0, 0] },
+                    { text: `Fecha y hora de emisión: ${electronicSignatureTimestamp}`, fontSize: 8, color: C_GRAY, margin: [0, 2, 0, 0] },
+                    { text: "Emitido desde el sistema clínico institucional.", fontSize: 7.5, color: C_GRAY, margin: [0, 2, 0, 0] },
+                  ],
+                  fillColor: "#f8fbff",
+                },
+                {
+                  width: "auto",
+                  alignment: "right",
+                  stack: [
+                    { text: institution.name, fontSize: 8.5, bold: true, color: C_BLUE },
+                    { text: institution.address, fontSize: 7.5, color: C_GRAY, margin: [0, 2, 0, 0] },
+                  ],
+                  fillColor: "#f8fbff",
+                },
+              ]],
+            },
           });
 
-          /* global pdfMake */
-          pdfMake
-            .createPdf(
-              { pageSize: "A4", pageMargins: [40, 40, 40, 40], content, defaultStyle: { font: "Roboto" } },
-              tableLayouts
-            )
-            .getBase64((base64) => resolve(base64));
+          return await new Promise((resolve) => {
+            pdfMake
+              .createPdf(
+              {
+                pageSize: "A4",
+                pageMargins: [40, 44, 40, 52],
+                content,
+                defaultStyle: { font: "Roboto" },
+                // Igual que el ejemplo de referencia: la imagen se registra una
+                // vez y se referencia por nombre desde la cabecera.
+                ...(pdfLogoDataUrl
+                  ? {
+                    images: { organizationLogo: pdfLogoDataUrl },
+                    background: {
+                      image: "organizationLogo",
+                      width: 260,
+                      opacity: 0.055,
+                      absolutePosition: { x: 168, y: 285 },
+                    },
+                  }
+                  : {}),
+                footer: (currentPage, pageCount) => ({
+                  margin: [40, 0, 40, 18],
+                  columns: [
+                    { text: "Documento clínico · Confidencial", color: C_GRAY, fontSize: 7.5 },
+                    { text: `Página ${currentPage} de ${pageCount}`, alignment: "right", color: C_GRAY, fontSize: 7.5 },
+                  ],
+                }),
+              },
+                tableLayouts
+              )
+              .getBase64((base64) => resolve(base64));
+          });
         } catch (err) {
-          reject(err);
+          throw err;
         }
-      });
     },
-    [allOrders, institution, patientName, provider, activeVisit]
+    [allOrders, institution, patientName, patientIdentifier, patientClinicalInfo, provider, activeVisit, visits, selectedVisitUuid, pdfLogoDataUrl]
   );
 
 
   // ── Imprimir UNA sección específica ───────────────────────────────────────
   const handlePrintSection = useCallback(async (sectionKey) => {
+    // Debe abrirse de forma síncrona con el clic para que el navegador no lo
+    // bloquee como popup mientras se prepara el logo y el documento.
+    const pdfWindow = window.open("", "_blank");
     setPrintingSection(sectionKey);
     try {
       const base64 = await generateSectionPdfBase64(sectionKey);
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      window.open(URL.createObjectURL(blob), "_blank");
+      openPdfInWindow(base64, pdfWindow);
     } catch (err) {
+      pdfWindow?.close();
       console.error("AllOrdersDashboard: error imprimiendo sección", sectionKey, err);
     } finally {
       setPrintingSection(null);
@@ -1225,15 +1493,14 @@ export function AllOrdersDashboard(props) {
   const handlePrintOrder = useCallback(async (order) => {
     const sectionKey = order.sectionKey;
     if (!sectionKey || !ALL_SECTIONS_CONFIG[sectionKey]) return;
+    // Véase handlePrintSection: mantener la pestaña asociada al gesto del usuario.
+    const pdfWindow = window.open("", "_blank");
     setPrintingSection(`row_${order.id}`);
     try {
       const base64 = await generateSectionPdfBase64(sectionKey, [order]);
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      window.open(URL.createObjectURL(blob), "_blank");
+      openPdfInWindow(base64, pdfWindow);
     } catch (err) {
+      pdfWindow?.close();
       console.error("AllOrdersDashboard: error imprimiendo orden individual", err);
     } finally {
       setPrintingSection(null);
