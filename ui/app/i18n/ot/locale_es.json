@@ -66,6 +66,7 @@
     "OT_ENTER_YOUR_NOTES": "introduzca sus notas",
     "OT_ADD_KEY": "Añadir",
     "OT_CANCEL_KEY": "Cancelar",
+    "OT_SELECT_OPTION_KEY": "Select an option",
     "OT_SELECT_SURGEON_KEY": "Seleccionar cirujano",
     "OT_REMAINING_BLOCK_DURATION_KEY": "Duración restante del bloque",
     "OT_START_DATE_TIME_KEY": "Fecha y hora de inicio",
